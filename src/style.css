@@ -13,6 +13,12 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+body {
+  /* 适配安全区域 */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 #app {
   width: 100%;
   height: 100%;
