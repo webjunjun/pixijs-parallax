@@ -7,6 +7,14 @@ export const TOTAL_SCROLL = 5000 // 里程碑用，覆盖 part1 的 0~3900 即�
 
 export const PARTS: PartConfig[] = [
   {
+    id: 0,
+    name: '引导',
+    layers: [
+      { name: 'hand',  texture: 'part0/hand.png',  x: DESIGN_WIDTH / 2, y: DESIGN_HEIGHT / 3 },
+      { name: 'title',  texture: 'part0/title.png',  x: 180, y: DESIGN_HEIGHT / 2 - 160 },
+    ],
+  },
+  {
     id: 1,
     name: '怀表',
     layers: [

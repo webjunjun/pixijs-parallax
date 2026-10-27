@@ -46,11 +46,13 @@ export class Game {
   private readonly layers: LayerInstance[] = []
   private readonly scroll: ScrollController
   private readonly container: HTMLElement
+  private readonly onProgress?: (pct: number) => void
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, onProgress?: (pct: number) => void) {
     this.app = new Application()
     this.scroll = new ScrollController(TOTAL_SCROLL)
     this.container = container
+    this.onProgress = onProgress
 
     this.app
       .init({
@@ -64,7 +66,6 @@ export class Game {
         container.appendChild(this.app.canvas as HTMLCanvasElement)
         this.resize()
         window.addEventListener('resize', () => this.resize())
-        await this.showLoading()
         await this.preloadImages()
         this.buildContent()
         this.bindTouch()
@@ -103,23 +104,15 @@ export class Game {
     }
   }
 
-  /** 中央显示 loading 图 */
-  private async showLoading(): Promise<void> {
-    const texture = await Assets.load<Texture>(`${ASSET_ROOT}/part0/loading.png`)
-    const loading = new Sprite(texture)
-    loading.scale.set(0.6)
-    loading.anchor.set(0.5)
-    loading.position.set(this.app.screen.width / 2, this.app.screen.height / 2)
-    this.app.stage.addChild(loading)
-  }
-
-  /** 预加载所有 PARTS 中声明的素材 */
+  /** 预加载所有 PARTS 中声明的素材，用 Assets 内置 onProgress 回调百分比 0~100 */
   private async preloadImages(): Promise<void> {
-    await Promise.all(
-      PARTS.flatMap((part) =>
-        part.layers.map((layer) => Assets.load<Texture>(`${ASSET_ROOT}/${layer.texture}`)),
-      ),
+    const urls = PARTS.flatMap((part) =>
+      part.layers.map((layer) => `${ASSET_ROOT}/${layer.texture}`),
     )
+    await Assets.load<Record<string, Texture>>(urls, (progress) => {
+      // 将资源加载进度转换为百分比回传给页面
+      this.onProgress?.(Math.round(progress * 100))
+    })
   }
 
   /** 用 Assets.get 拿到已加载的 Texture，组装 Sprite 进 content 容器 */
@@ -128,7 +121,8 @@ export class Game {
       for (const cfg of part.layers) {
         const texture = Assets.get<Texture>(`${ASSET_ROOT}/${cfg.texture}`)
         const sprite = new Sprite(texture)
-        sprite.position.set(cfg.x, cfg.y)
+        sprite.position.set(cfg.x, cfg.y) // 设置精灵图的初始位置
+        // 设置锚点(改变精灵图默认的原点(0, 0)，图片的左上角位置)和 pivot(改变精灵图的旋转中心点，默认在(0, 0),图片的左上角)
         if (cfg.anchor) sprite.anchor.set(cfg.anchor[0], cfg.anchor[1])
         if (cfg.pivot) sprite.pivot.set(cfg.pivot[0], cfg.pivot[1])
         this.content.addChild(sprite)
