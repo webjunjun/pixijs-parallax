@@ -2,6 +2,7 @@ import { Application, Assets, Container, Sprite, Texture } from 'pixi.js'
 import { DESIGN_HEIGHT, DESIGN_WIDTH, PARTS, TOTAL_SCROLL, ASSET_ROOT } from '../utils/constant'
 import type { ElementConfig } from '../utils/type'
 import { FEATURES, type LayerInstance } from './features'
+import { SoundManager } from './audio'
 
 /** 简单滚动控制器：手指 → scrollY 纯累加，无惯性无弹性 */
 export class ScrollController {
@@ -38,6 +39,8 @@ export class Game {
   private readonly scroll: ScrollController
   private readonly container: HTMLElement
   private readonly onProgress?: (pct: number) => void
+  /** 滚动区间声音 + BGM 开关（main.ts 的 .music 按钮调用 toggle） */
+  readonly sound = new SoundManager()
   /** 设计稿 → canvas 像素的缩放比，所有内部坐标统一用设计稿坐标系 */
   private scaleX = 1
   private scaleY = 1
@@ -216,6 +219,7 @@ export class Game {
           feature.update?.(layer, scrollPro, dt)
         }
       }
+      this.sound.update(scrollPro)
     })
   }
 }
