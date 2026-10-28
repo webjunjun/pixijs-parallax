@@ -1,5 +1,5 @@
-import { Container, Graphics, Sprite } from 'pixi.js'
-import { DESIGN_HEIGHT } from '../utils/constant'
+import { Assets, Container, Graphics, Sprite, Texture } from 'pixi.js'
+import { ASSET_ROOT, DESIGN_HEIGHT } from '../utils/constant'
 import { scrollNumClamped } from '../utils/utils'
 import type { AnimKey, ElementConfig } from '../utils/type'
 
@@ -73,7 +73,7 @@ const anchorFeature: Feature = {
   },
 }
 
-/** 时间驱动的循环动画（如手势提示），独立于滚动 */
+/** 时间驱动的循环动画（如手势提示、星星闪烁），独立于滚动；yoyo 时往返播放 */
 const loopFeature: Feature = {
   build(layer) {
     if (layer.cfg.loop) layer.loopTime = 0
@@ -81,8 +81,10 @@ const loopFeature: Feature = {
   update(layer, _scrollPro, dt) {
     const loop = layer.cfg.loop
     if (!loop) return
-    layer.loopTime = ((layer.loopTime ?? 0) + dt) % loop.duration
-    const t = layer.loopTime / loop.duration
+    const cycle = loop.yoyo ? loop.duration * 2 : loop.duration
+    layer.loopTime = ((layer.loopTime ?? 0) + dt) % cycle
+    let t = layer.loopTime / loop.duration
+    if (loop.yoyo && t > 1) t = 2 - t
     const val = loop.from + (loop.to - loop.from) * t
     applyProp(layer.target, loop.prop, val)
   },
@@ -199,5 +201,17 @@ const animFeature: Feature = {
   },
 }
 
+/** 滚动驱动的序列帧：scrollPro 在 range 内按位置切换贴图，区间前钉首帧、区间后钉末帧 */
+const frameSeqFeature: Feature = {
+  update(layer, scrollPro) {
+    const fs = layer.cfg.frameSeq
+    if (!fs || !(layer.target instanceof Sprite)) return
+    let idx = Math.floor(((scrollPro - fs.range[0]) / (fs.range[1] - fs.range[0])) * fs.frames)
+    idx = Math.max(0, Math.min(fs.frames - 1, idx))
+    const tex = Assets.get<Texture>(`${ASSET_ROOT}/${fs.prefix}${idx}.png`)
+    if (tex && layer.target.texture !== tex) layer.target.texture = tex
+  },
+}
+
 /** 已注册的特性，按 build 顺序执行（rect 换 target 最先，anim 最后） */
-export const FEATURES: Feature[] = [rectFeature, circleFeature, anchorFeature, loopFeature, maskFeature, animFeature]
+export const FEATURES: Feature[] = [rectFeature, circleFeature, anchorFeature, loopFeature, maskFeature, animFeature, frameSeqFeature]

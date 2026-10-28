@@ -21,10 +21,10 @@ src/
 ├── style.css            # 全局样式 + loading 动画
 ├── game/
 │   ├── Game.ts          # 主类：init、resize、preload、buildContent、bindTouch、startLoop
-│   └── features.ts      # Feature 插件系统（anchor / loop / mask / anim）
+│   └── features.ts      # Feature 插件系统（rect / circle / anchor / loop / mask / anim）
 └── utils/
     ├── constant.ts      # 场景配置 PARTS + 常量（设计稿尺寸、总滚动距离）
-    ├── type.ts          # 配置类型定义（ElementConfig / AnimKey / LoopAnim / MaskConfig）
+    ├── type.ts          # 配置类型定义（ElementConfig / AnimKey / LoopAnim / MaskConfig / RectConfig / CircleConfig）
     └── utils.ts         # scrollNum / scrollNumClamped / inRange
 ```
 
@@ -60,23 +60,28 @@ interface Feature {
 
 | Feature | 作用 | 配置字段 |
 |---------|------|----------|
+| `rectFeature` | 纯色矩形（用 Graphics **替换 target**） | `rect` |
+| `circleFeature` | 纯色圆形（用 Graphics **替换 target**） | `circle` |
 | `anchorFeature` | 设置 `anchor` / `pivot` | `anchor` `pivot` |
 | `loopFeature` | 时间驱动的循环动画 | `loop` |
-| `maskFeature` | 滚动驱动的矩形展开遮罩 | `mask` |
-| `animFeature` | 滚动驱动的区间插值动画 | `anims` |
+| `maskFeature` | 滚动驱动遮罩（矩形展开 / 圆形 steps / maskContainer） | `mask` |
+| `animFeature` | 滚动驱动的区间插值动画（同 prop 多段轨道接力） | `anims` |
 
-**执行顺序**：`build` 按数组顺序执行（anchor → loop → mask → anim），`update` 同理。
+**执行顺序**：`build` 按数组顺序执行（rect → circle → anchor → loop → mask → anim），`update` 同理。rect/circle 会替换 target，所以必须排在最前，后续特性作用于新 target。
 
 ### 3.3 LayerInstance（运行时实例）
 
 ```ts
 interface LayerInstance {
   cfg: ElementConfig        // 原始配置
-  target: Sprite | Container // 被驱动的显示对象
+  target: Sprite | Container // 被驱动的显示对象（rect/circle 特性会换成 Graphics）
   parent: Container          // 父容器（用于加遮罩等附属对象）
   anims: AnimKey[]
+  animTracks?: Map<prop, AnimKey[]> // anim 特性：按 prop 分组的关键帧轨道
   loopTime?: number          // loop 特性的计时
   maskShape?: Graphics       // mask 特性的遮罩图形
+  maskContainer?: Container  // mask 特性：独立遮罩容器（maskContainer 模式）
+  maskContainerTracks?: Map<prop, AnimKey[]> // mask 容器动画轨道
 }
 ```
 
@@ -89,7 +94,7 @@ interface LayerInstance {
 ```ts
 DESIGN_WIDTH  = 1040   // 设计稿宽度（横屏）
 DESIGN_HEIGHT = 640    // 设计稿高度
-TOTAL_SCROLL  = 5000   // 最大可滚动距离（设计稿像素）
+TOTAL_SCROLL  = 9550   // 最大可滚动距离（设计稿像素，第三场景动画到 9550 结束）
 ASSET_ROOT    = '/assets/tonghua'
 ```
 
@@ -105,7 +110,10 @@ ASSET_ROOT    = '/assets/tonghua'
 | `scale` | [number,number]? | 初始缩放 |
 | `anims` | AnimKey[]? | 滚动区间动画 |
 | `loop` | LoopAnim? | 时间循环动画 |
-| `mask` | MaskConfig? | 展开遮罩 |
+| `mask` | MaskConfig? | 滚动驱动遮罩（矩形展开 / 圆形 steps / maskContainer） |
+| `rect` | RectConfig? | 纯色矩形 `{width,height,color,alpha?}`（本节点变 Graphics） |
+| `circle` | CircleConfig? | 纯色圆形 `{radius,color,alpha?}`（本节点变 Graphics） |
+| `maskRef` | string? | 按 `name` 引用其他层的 target 作为本层遮罩 |
 | `children` | ElementConfig[]? | 子元素（本节点变 Container） |
 
 ### 4.3 AnimKey（滚动区间动画）
@@ -117,6 +125,7 @@ ASSET_ROOT    = '/assets/tonghua'
 - `range`：scrollPro 区间
 - `prop`：`x` | `y` | `rotation` | `scaleX` | `scaleY` | `alpha`
 - `from` / `to`：区间两端的值（线性插值，区间外自动钉住）
+- **同 prop 多段接力**：同一节点同一 prop 可写多条 anims，引擎按 `range` 排序成轨道依次插值（如 scale 0.4→1→6 分两段）。第一段区间之前钉住其起点，最后一段之后钉住其终点。
 
 ### 4.4 LoopAnim（时间循环动画）
 
@@ -127,7 +136,9 @@ ASSET_ROOT    = '/assets/tonghua'
 - 独立于滚动，按 `duration` 秒循环 `from → to`
 - `prop` 仅支持 `x` | `y`
 
-### 4.5 MaskConfig（展开遮罩）
+### 4.5 MaskConfig（滚动驱动遮罩）
+
+**矩形模式**（如 part1 怀表从左到右展开）：
 
 ```ts
 { range: [100, 2600], width: 3744 }
@@ -136,6 +147,27 @@ ASSET_ROOT    = '/assets/tonghua'
 - 创建一个 `width × DESIGN_HEIGHT` 的矩形 Graphics 作为遮罩
 - scrollPro 在 `range` 内时，遮罩 `scale.x` 从 0 → 1（从左到右展开）
 - 遮罩位置对齐 target 的 `x`
+
+**圆形模式**：`circle: { radius, color?, alpha? }` + `from`（初始 scale）+ `steps: [{ range, scale }]` 多段缩放轨道。
+
+**maskContainer 模式**：`maskContainer: { x, y, pivot?, anims }`，遮罩放进独立容器，容器自身的 `anims` 用轨道逻辑驱动（参考 part3 圆孔）。
+
+> 现场景（part3）实际采用的是「遮罩独立成层 + maskRef 引用」方案，见 4.6，比 mask 内嵌模式更直观。
+
+### 4.6 maskRef（跨层引用遮罩）
+
+```ts
+// 被裁剪的内容层：maskRef 指向遮罩层的 name
+{ name: 'cont', x: 4132, maskRef: 'mask', children: [...] },
+// 遮罩本体：纯色圆形 Graphics，自身用 anims 驱动缩放
+{ name: 'maskCont', x: 4646, y: 319, scale: [0.02, 0.02],
+  anims: [ /* 三段 scaleX/scaleY 接力：0.02→0.3→1→4 */ ],
+  children: [{ name: 'mask', circle: { radius: 800, color: 0xffffff }, x: 0, y: 0 }] },
+```
+
+- `buildContent` 结束后统一处理：按 `name` 在所有层中查找，把其 `target` 挂为 `layer.target.mask`
+- 遮罩层的 `name` 必须**全局唯一**（查找按 name，重名会引错）
+- 遮罩 Graphics 本身不会被渲染（v8 StencilMask 的 `includeInBuild = false`）
 
 ---
 
@@ -185,6 +217,7 @@ ASSET_ROOT    = '/assets/tonghua'
 - `x` 是该元素在长卷上的绝对位置，不是相对 part 的偏移
 - 新场景的 `x` 要大于前一场景的末尾
 - 如果需要调整总滚动距离，改 `TOTAL_SCROLL`
+- **PARTS 数组顺序 = 叠放顺序**：越靠后的 part 渲染在上层（如 part3 在 part2 之前 = 隧道盖在森林上）
 
 ---
 
@@ -258,7 +291,7 @@ const frameAnimFeature: Feature = {
 ### 步骤 3：注册到 FEATURES 数组
 
 ```ts
-export const FEATURES: Feature[] = [anchorFeature, loopFeature, maskFeature, animFeature, frameAnimFeature]
+export const FEATURES: Feature[] = [rectFeature, circleFeature, anchorFeature, loopFeature, maskFeature, animFeature, frameAnimFeature]
 ```
 
 **规则**：
@@ -289,11 +322,14 @@ class ScrollController {
 
 1. **texture 路径**：`constant.ts` 里写相对路径（如 `part1/biao.png`），引擎自动拼 `ASSET_ROOT`。
 2. **遮罩必须加入舞台**：`maskFeature` 里 `parent.addChild(mask)` 不能漏，否则遮罩不生效。
-3. **anim 的 prop 覆盖**：如果同一 layer 的 `loop` 和 `anims` 操作同一个 `prop`（如都改 x），`animFeature` 在 `loopFeature` 之后执行，会覆盖 loop。避免同 prop 冲突。
+3. **loop 与 anim 冲突**：同一节点的 `loop` 和 `anims` 操作同一个 `prop`（如都改 x）时，`animFeature` 在 `loopFeature` 之后执行会覆盖 loop，避免冲突。同一 prop 的多条 `anims` 之间不冲突（轨道接力）。
 4. **roundPixels**：开启后 sprite 位置取整，滚动时若有轻微抖动可关闭。
 5. **竖屏旋转**：`container` 的 CSS `rotate(90deg)` 只影响视觉，canvas 内部坐标不变。触摸坐标转换已处理。
 6. **新增素材**：放到 `public/assets/tonghua/` 对应目录，`constant.ts` 里声明路径即可，`preloadImages` 会自动收集（含 children 里的）。
 7. **不要改 Game.ts 主流程**：所有扩展通过 Feature 和配置实现，保持开闭原则。
+8. **Graphics.fill 的 falsy 坑**：Pixi 8.0.0 中 `fill(0x000000, 1)` 位置参数形式会因源码 `if (style)` 判断跳过黑色（数字 0 是 falsy），填成默认白色。**必须用对象形式 `fill({ color, alpha })`**。
+9. **跨场景底幕要跟随相机**：纯色背景（如 part3 的 bgBlack）若钉死坐标，滚过视口后会露白。把它放进带跟随动画的容器（如 `森林` 容器的 `x 0→1850`），由容器统一跟随滚动。
+10. **容器局部坐标**：嵌套容器的子元素 `x/y` 是相对容器的，换算世界坐标 = 容器位置 + 局部值。同一场景内保持一套坐标基准，避免混用。
 
 ---
 

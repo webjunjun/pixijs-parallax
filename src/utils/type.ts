@@ -8,10 +8,19 @@ export interface AnimKey {
 
 /** 循环动画：独立于滚动，用时间驱动 from→to 无限循环 */
 export interface LoopAnim {
-  prop: 'x' | 'y' // 动画属性
+  prop: 'x' | 'y' | 'alpha' // 动画属性
   from: number // 初始值
   to: number // 目标值
-  duration: number // 秒
+  duration: number // 秒（yoyo 时为单程时长）
+  yoyo?: boolean // 往返播放（如星星闪烁 1→0.4→1）
+}
+
+/** 滚动驱动的序列帧：scrollPro 在 range 内时按位置切换 prefix0..prefix{frames-1}.png
+ *  区间之前钉住首帧，之后钉住末帧（如月相 m0~m5、开火 zidan0~4） */
+export interface FrameSeq {
+  prefix: string // 贴图路径前缀（相对 ASSET_ROOT），如 'part4/m'
+  frames: number // 帧数
+  range: [number, number] // scrollPro 区间
 }
 
 /** 遮罩配置：滚动驱动的缩放遮罩
@@ -65,8 +74,10 @@ export interface ElementConfig {
   anchor?: [number, number] // 锚点，默认 [0, 0] ，左上角对齐
   pivot?: [number, number]  // 像素单位旋转中心，优先于 anchor
   scale?: [number, number]  // 初始缩放，默认 [1, 1]
+  rotation?: number // 初始旋转（弧度），默认 0
   anims?: AnimKey[] // 滚动驱动的区间动画
   loop?: LoopAnim // 时间驱动的循环动画（如手势提示）
+  frameSeq?: FrameSeq // 滚动驱动的序列帧（无 texture 时自动取第 0 帧）
   mask?: MaskConfig // 滚动驱动的展开遮罩
   maskRef?: string // 引用其他层的 Graphics 作为遮罩（如 'maskCont.mask'）
   rect?: RectConfig // 纯色矩形（本节点变 Graphics）

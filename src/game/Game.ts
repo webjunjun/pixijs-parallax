@@ -113,6 +113,11 @@ export class Game {
     const walk = (list: ElementConfig[]) => {
       for (const cfg of list) {
         if (cfg.texture) urls.push(`${ASSET_ROOT}/${cfg.texture}`)
+        if (cfg.frameSeq) {
+          for (let i = 0; i < cfg.frameSeq.frames; i++) {
+            urls.push(`${ASSET_ROOT}/${cfg.frameSeq.prefix}${i}.png`)
+          }
+        }
         if (cfg.children) walk(cfg.children)
       }
     }
@@ -130,11 +135,13 @@ export class Game {
 
   /** 递归构建一个 layer：创建显示对象 → 各特性 build → 加入父容器 → 递归子元素 */
   private buildLayer(cfg: ElementConfig, parent: Container): LayerInstance {
-    const target = cfg.texture
-      ? new Sprite(Assets.get<Texture>(`${ASSET_ROOT}/${cfg.texture}`))
+    const texPath = cfg.texture ?? (cfg.frameSeq ? `${cfg.frameSeq.prefix}0.png` : undefined)
+    const target = texPath
+      ? new Sprite(Assets.get<Texture>(`${ASSET_ROOT}/${texPath}`))
       : new Container()
     target.position.set(cfg.x, cfg.y)
     if (cfg.scale) target.scale.set(cfg.scale[0], cfg.scale[1])
+    if (cfg.rotation) target.rotation = cfg.rotation
 
     const layer: LayerInstance = { cfg, target, parent, anims: cfg.anims ?? [] }
     for (const feature of FEATURES) feature.build?.(layer)
