@@ -92,7 +92,8 @@ const loopFeature: Feature = {
 }
 
 /** 滚动驱动的遮罩：矩形 scale.x 展开，或圆形按 steps 多段缩放
- *  支持 maskContainer 模式：遮罩放在独立容器中，容器有自己的 anims 驱动缩放/位移 */
+ *  支持 maskContainer 模式：遮罩放在独立容器中，容器有自己的 anims 驱动缩放/位移
+ *  圆形模式：遮罩作为 parent 的子节点（不受容器 scale 影响），位置对齐容器 pivot */
 const maskFeature: Feature = {
   build(layer) {
     const { cfg, target, parent } = layer
@@ -103,6 +104,22 @@ const maskFeature: Feature = {
       mask.circle(0, 0, m.circle.radius ?? 0).fill({ color: m.circle.color ?? 0xffffff, alpha: m.circle.alpha ?? 1.0 })
       const s = m.from ?? 0
       mask.scale.set(s, s)
+      if (cfg.children) {
+        // 容器型遮罩提供者：mask 放在容器内 (0,0)，由容器 position+pivot 定位到世界坐标
+        mask.position.set(0, 0)
+        parent.addChild(mask)
+      } else if (cfg.maskRef) {
+        // maskRef 模式：mask 由自身父容器定位
+        parent.addChild(mask)
+      } else {
+        // 直接遮罩（无 children）：mask 加入 parent 并对齐 target 的 pivot 位置
+        if (cfg.pivot) {
+          mask.position.set(cfg.x + cfg.pivot[0], cfg.y + cfg.pivot[1])
+        } else {
+          mask.position.set(cfg.x, cfg.y)
+        }
+        parent.addChild(mask)
+      }
     } else {
       if (!m.range || !m.width) return
       mask.rect(0, 0, m.width, m.height ?? DESIGN_HEIGHT)
@@ -131,9 +148,13 @@ const maskFeature: Feature = {
       for (const list of tracks.values()) list.sort((a, b) => a.range[0] - b.range[0])
       layer.maskContainerTracks = tracks
     } else {
-      // 简单模式：mask 直接加入 parent
-      target.mask = mask
-      parent.addChild(mask)
+      // 简单模式：mask 直接加入 parent（圆形已在上面添加）
+      if (!m.circle) {
+        target.mask = mask
+        parent.addChild(mask)
+      } else {
+        target.mask = mask
+      }
       layer.maskShape = mask
     }
   },
@@ -202,13 +223,15 @@ const animFeature: Feature = {
   },
 }
 
-/** 滚动驱动的序列帧：scrollPro 在 range 内按位置切换贴图，区间前钉首帧、区间后钉末帧 */
+/** 滚动驱动的序列帧：scrollPro 在 range 内按位置切换贴图，区间前钉首帧、区间后钉末帧
+ *  reverse 时倒放（区间内从末帧切到首帧，区间前钉末帧、区间后钉首帧） */
 const frameSeqFeature: Feature = {
   update(layer, scrollPro) {
     const fs = layer.cfg.frameSeq
     if (!fs || !(layer.target instanceof Sprite)) return
     let idx = Math.floor(((scrollPro - fs.range[0]) / (fs.range[1] - fs.range[0])) * fs.frames)
     idx = Math.max(0, Math.min(fs.frames - 1, idx))
+    if (fs.reverse) idx = fs.frames - 1 - idx
     const tex = Assets.get<Texture>(`${ASSET_ROOT}/${fs.prefix}${idx}.png`)
     if (tex && layer.target.texture !== tex) layer.target.texture = tex
   },

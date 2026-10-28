@@ -21,6 +21,7 @@ export interface FrameSeq {
   prefix: string // 贴图路径前缀（相对 ASSET_ROOT），如 'part4/m'
   frames: number // 帧数
   range: [number, number] // scrollPro 区间
+  reverse?: boolean // 倒放：区间内从末帧切到首帧（如 part12 日期倒数）
 }
 
 /** 遮罩配置：滚动驱动的缩放遮罩
@@ -84,7 +85,7 @@ export interface ElementConfig {
   pivot?: [number, number]  // 像素单位旋转中心，优先于 anchor
   scale?: [number, number]  // 初始缩放，默认 [1, 1]
   rotation?: number // 初始旋转（弧度），默认 0
-  anims?: AnimKey[] // 滚动驱动的区间动画
+  anims?: AnimKey[] // 滚动驱动的区间动画（作用于 target 元素；容器节点写 anims 即可驱动容器自身变换，pivot 语义同 Pixi）
   loop?: LoopAnim // 时间驱动的循环动画（如手势提示）
   frameSeq?: FrameSeq // 滚动驱动的序列帧（无 texture 时自动取第 0 帧）
   ripple?: RippleAnim // 时间驱动的涟漪动画（缩放+淡出循环，支持交错延迟和滚动区间控制）
