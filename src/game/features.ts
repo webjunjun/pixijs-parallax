@@ -14,6 +14,7 @@ export interface LayerInstance {
   maskShape?: Graphics // mask 特性：遮罩图形
   maskContainer?: Container // mask 特性：独立遮罩容器（maskContainer 模式）
   maskContainerTracks?: Map<AnimKey['prop'], AnimKey[]> // mask 容器动画轨道
+  rippleTime?: number // ripple 特性：累计播放时间（秒）
 }
 
 /** 特性接口：每个特性负责自己的「创建」和「每帧更新」 */
@@ -213,5 +214,38 @@ const frameSeqFeature: Feature = {
   },
 }
 
+/** 涟漪动画：时间驱动的两阶段循环（delay → scale 0→1 → alpha 1→0 → 重复）
+ *  仅在 scrollPro 处于 range 内时播放，离开区间暂停冻结，回到区间继续 */
+const rippleFeature: Feature = {
+  build(layer) {
+    const r = layer.cfg.ripple
+    if (!r) return
+    layer.rippleTime = 0
+    layer.target.scale.set(0, 0)
+    layer.target.alpha = 1
+  },
+  update(layer, scrollPro, dt) {
+    const r = layer.cfg.ripple
+    if (!r) return
+    const inRange = scrollPro >= r.range[0] && scrollPro <= r.range[1]
+    if (!inRange) return
+    layer.rippleTime = (layer.rippleTime ?? 0) + dt
+    const totalCycle = r.delay + r.scaleDuration + r.fadeDuration
+    const cycleTime = layer.rippleTime % totalCycle
+    if (cycleTime < r.delay) {
+      layer.target.scale.set(0, 0)
+      layer.target.alpha = 1
+    } else if (cycleTime < r.delay + r.scaleDuration) {
+      const t = (cycleTime - r.delay) / r.scaleDuration
+      layer.target.scale.set(t, t)
+      layer.target.alpha = 1
+    } else {
+      const t = (cycleTime - r.delay - r.scaleDuration) / r.fadeDuration
+      layer.target.scale.set(1, 1)
+      layer.target.alpha = 1 - t
+    }
+  },
+}
+
 /** 已注册的特性，按 build 顺序执行（rect 换 target 最先，anim 最后） */
-export const FEATURES: Feature[] = [rectFeature, circleFeature, anchorFeature, loopFeature, maskFeature, animFeature, frameSeqFeature]
+export const FEATURES: Feature[] = [rectFeature, circleFeature, anchorFeature, loopFeature, maskFeature, animFeature, frameSeqFeature, rippleFeature]

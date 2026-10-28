@@ -66,6 +66,8 @@ interface Feature {
 | `loopFeature` | 时间驱动的循环动画 | `loop` |
 | `maskFeature` | 滚动驱动遮罩（矩形展开 / 圆形 steps / maskContainer） | `mask` |
 | `animFeature` | 滚动驱动的区间插值动画（同 prop 多段轨道接力） | `anims` |
+| `frameSeqFeature` | 滚动驱动的序列帧（按位置切换贴图） | `frameSeq` |
+| `rippleFeature` | 时间驱动的涟漪动画（缩放→淡出循环，支持交错延迟和滚动区间暂停/恢复） | `ripple` |
 
 **执行顺序**：`build` 按数组顺序执行（rect → circle → anchor → loop → mask → anim），`update` 同理。rect/circle 会替换 target，所以必须排在最前，后续特性作用于新 target。
 
@@ -82,6 +84,7 @@ interface LayerInstance {
   maskShape?: Graphics       // mask 特性的遮罩图形
   maskContainer?: Container  // mask 特性：独立遮罩容器（maskContainer 模式）
   maskContainerTracks?: Map<prop, AnimKey[]> // mask 容器动画轨道
+  rippleTime?: number        // ripple 特性：累计播放时间（秒）
 }
 ```
 
@@ -110,6 +113,8 @@ ASSET_ROOT    = '/assets/tonghua'
 | `scale` | [number,number]? | 初始缩放 |
 | `anims` | AnimKey[]? | 滚动区间动画 |
 | `loop` | LoopAnim? | 时间循环动画 |
+| `frameSeq` | FrameSeq? | 滚动驱动的序列帧 `{prefix, frames, range}` |
+| `ripple` | RippleAnim? | 时间驱动的涟漪动画 `{scaleDuration, fadeDuration, delay, range}` |
 | `mask` | MaskConfig? | 滚动驱动遮罩（矩形展开 / 圆形 steps / maskContainer） |
 | `rect` | RectConfig? | 纯色矩形 `{width,height,color,alpha?}`（本节点变 Graphics） |
 | `circle` | CircleConfig? | 纯色圆形 `{radius,color,alpha?}`（本节点变 Graphics） |
@@ -135,6 +140,28 @@ ASSET_ROOT    = '/assets/tonghua'
 
 - 独立于滚动，按 `duration` 秒循环 `from → to`
 - `prop` 仅支持 `x` | `y`
+
+### 4.4.1 FrameSeq（滚动驱动序列帧）
+
+```ts
+{ prefix: 'part4/m', frames: 6, range: [5000, 7000] }
+```
+
+- `prefix`：贴图路径前缀（相对 ASSET_ROOT），如 `'part4/m'` → 加载 `m0.png` ~ `m5.png`
+- `frames`：总帧数
+- `range`：scrollPro 区间，区间内按位置切换帧，区间前钉首帧、区间后钉末帧
+- 无需设置 `texture`，引擎自动取 `prefix0.png` 作为初始贴图
+
+### 4.4.2 RippleAnim（涟漪动画）
+
+```ts
+{ scaleDuration: 2, fadeDuration: 1, delay: 0.43, range: [29100, 30950] }
+```
+
+- 时间驱动的两阶段循环：**delay → scale 0→1（scaleDuration 秒）→ alpha 1→0（fadeDuration 秒）→ 重复**
+- `delay`：交错延迟（秒），多个涟漪实例设置不同的 delay 形成波浪效果
+- `range`：滚动区间，仅在此区间内播放；离开区间暂停冻结，回到区间继续
+- 典型用法：水波涟漪（参考 part9 的 W1~W7）
 
 ### 4.5 MaskConfig（滚动驱动遮罩）
 

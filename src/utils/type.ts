@@ -47,6 +47,15 @@ export interface MaskConfig {
   }
 }
 
+/** 涟漪动画：时间驱动的两阶段循环（缩放展开 → 淡出 → 重置）
+ *  支持多实例交错启动（delay）和按滚动区间暂停/恢复 */
+export interface RippleAnim {
+  scaleDuration: number // 阶段 1：scale 0→1 的时长（秒）
+  fadeDuration: number  // 阶段 2：alpha 1→0 的时长（秒）
+  delay: number         // 交错延迟（秒），每个实例不同以形成波浪效果
+  range: [number, number] // 滚动区间，仅在此区间内播放动画
+}
+
 /** 纯色矩形（无需贴图，用 Graphics 绘制，如场景白/黑底幕） */
 export interface RectConfig {
   width: number
@@ -78,6 +87,7 @@ export interface ElementConfig {
   anims?: AnimKey[] // 滚动驱动的区间动画
   loop?: LoopAnim // 时间驱动的循环动画（如手势提示）
   frameSeq?: FrameSeq // 滚动驱动的序列帧（无 texture 时自动取第 0 帧）
+  ripple?: RippleAnim // 时间驱动的涟漪动画（缩放+淡出循环，支持交错延迟和滚动区间控制）
   mask?: MaskConfig // 滚动驱动的展开遮罩
   maskRef?: string // 引用其他层的 Graphics 作为遮罩（如 'maskCont.mask'）
   rect?: RectConfig // 纯色矩形（本节点变 Graphics）
