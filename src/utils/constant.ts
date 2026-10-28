@@ -11,10 +11,13 @@ import { part9 } from "./parts/part9"
 import { part10 } from "./parts/part10"
 import { part11 } from "./parts/part11"
 import { part12 } from "./parts/part12"
+import { part13 } from "./parts/part13"
+import { part14 } from "./parts/part14"
+import { part15 } from "./parts/part15"
 
 export const DESIGN_WIDTH = 1040 // 横版画布宽
 export const DESIGN_HEIGHT = 640 // 横版画布高
-export const TOTAL_SCROLL = 44100 // 总滚动距离（第十二场景放大隐藏动画到 44100 结束）
+export const TOTAL_SCROLL = 48400 // 总滚动距离（第十五场景 talk 渐现 48240 完成后保持展示，终点多留 160px）
 export const ASSET_ROOT = '/assets/tonghua'
 
 // 数组顺序 = 叠放顺序 所以如果希望后面的元素在前面的元素下层，就让它和前面的元素交换位置即可
@@ -28,8 +31,11 @@ export const PARTS: PartConfig[] = [
   part6,
   part7,
   part8,
+  part14,
+  part13,
   part12,
   part11,
   part10,
   part9,
+  part15,
 ]

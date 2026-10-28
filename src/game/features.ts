@@ -74,7 +74,8 @@ const anchorFeature: Feature = {
   },
 }
 
-/** 时间驱动的循环动画（如手势提示、星星闪烁），独立于滚动；yoyo 时往返播放 */
+/** 时间驱动的循环动画（如手势提示、星星闪烁），独立于滚动；yoyo 时往返播放
+ *  设置 range 时仅在滚动区间内播放，离开区间时间冻结，回到区间继续 */
 const loopFeature: Feature = {
   build(layer) {
     if (layer.cfg.loop) layer.loopTime = 0
@@ -82,6 +83,7 @@ const loopFeature: Feature = {
   update(layer, _scrollPro, dt) {
     const loop = layer.cfg.loop
     if (!loop) return
+    if (loop.range && (_scrollPro < loop.range[0] || _scrollPro > loop.range[1])) return
     const cycle = loop.yoyo ? loop.duration * 2 : loop.duration
     layer.loopTime = ((layer.loopTime ?? 0) + dt) % cycle
     let t = layer.loopTime / loop.duration
@@ -224,13 +226,16 @@ const animFeature: Feature = {
 }
 
 /** 滚动驱动的序列帧：scrollPro 在 range 内按位置切换贴图，区间前钉首帧、区间后钉末帧
- *  reverse 时倒放（区间内从末帧切到首帧，区间前钉末帧、区间后钉首帧） */
+ *  reverse 时倒放（区间内从末帧切到首帧，区间前钉末帧、区间后钉首帧）
+ *  steps 时区间均分成 steps 步、帧号 = 步数 % frames（多循环，如秋千 15 步循环 10 帧） */
 const frameSeqFeature: Feature = {
   update(layer, scrollPro) {
     const fs = layer.cfg.frameSeq
     if (!fs || !(layer.target instanceof Sprite)) return
-    let idx = Math.floor(((scrollPro - fs.range[0]) / (fs.range[1] - fs.range[0])) * fs.frames)
-    idx = Math.max(0, Math.min(fs.frames - 1, idx))
+    const total = fs.steps ?? fs.frames
+    let idx = Math.floor(((scrollPro - fs.range[0]) / (fs.range[1] - fs.range[0])) * total)
+    idx = Math.max(0, Math.min(total - 1, idx))
+    idx = idx % fs.frames
     if (fs.reverse) idx = fs.frames - 1 - idx
     const tex = Assets.get<Texture>(`${ASSET_ROOT}/${fs.prefix}${idx}.png`)
     if (tex && layer.target.texture !== tex) layer.target.texture = tex

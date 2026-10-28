@@ -8,11 +8,12 @@ export interface AnimKey {
 
 /** 循环动画：独立于滚动，用时间驱动 from→to 无限循环 */
 export interface LoopAnim {
-  prop: 'x' | 'y' | 'alpha' // 动画属性
+  prop: 'x' | 'y' | 'alpha' | 'rotation' // 动画属性
   from: number // 初始值
   to: number // 目标值
   duration: number // 秒（yoyo 时为单程时长）
   yoyo?: boolean // 往返播放（如星星闪烁 1→0.4→1）
+  range?: [number, number] // 滚动区间：仅区间内播放，离开区间时间冻结，回到区间继续（如 part13 人2扫描）
 }
 
 /** 滚动驱动的序列帧：scrollPro 在 range 内时按位置切换 prefix0..prefix{frames-1}.png
@@ -22,6 +23,7 @@ export interface FrameSeq {
   frames: number // 帧数
   range: [number, number] // scrollPro 区间
   reverse?: boolean // 倒放：区间内从末帧切到首帧（如 part12 日期倒数）
+  steps?: number // 总步数（默认 = frames）：区间均分成 steps 步逐步切帧，帧号 = 步数 % frames，支持多循环（如 part13 秋千 15 步循环 10 帧）
 }
 
 /** 遮罩配置：滚动驱动的缩放遮罩

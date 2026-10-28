@@ -97,7 +97,7 @@ interface LayerInstance {
 ```ts
 DESIGN_WIDTH  = 1040   // 设计稿宽度（横屏）
 DESIGN_HEIGHT = 640    // 设计稿高度
-TOTAL_SCROLL  = 9550   // 最大可滚动距离（设计稿像素，第三场景动画到 9550 结束）
+TOTAL_SCROLL  = 48400  // 最大可滚动距离（设计稿像素，第十五场景 talk 渐现 48240 完成后保持展示）
 ASSET_ROOT    = '/assets/tonghua'
 ```
 
@@ -139,7 +139,8 @@ ASSET_ROOT    = '/assets/tonghua'
 ```
 
 - 独立于滚动，按 `duration` 秒循环 `from → to`
-- `prop` 仅支持 `x` | `y`
+- `prop` 支持 `x` | `y` | `alpha` | `rotation`
+- `range`（可选）：滚动区间，仅区间内播放，离开区间时间冻结，回到区间继续（参考 part13 人2扫描旋转）
 
 ### 4.4.1 FrameSeq（滚动驱动序列帧）
 
@@ -150,6 +151,8 @@ ASSET_ROOT    = '/assets/tonghua'
 - `prefix`：贴图路径前缀（相对 ASSET_ROOT），如 `'part4/m'` → 加载 `m0.png` ~ `m5.png`
 - `frames`：总帧数
 - `range`：scrollPro 区间，区间内按位置切换帧，区间前钉首帧、区间后钉末帧
+- `reverse`（可选）：倒放，区间内从末帧切到首帧（参考 part12 日期倒数）
+- `steps`（可选，默认 = frames）：区间均分成 steps 步逐步切帧，帧号 = 步数 % frames，支持多循环（参考 part13 秋千 15 步循环 10 帧）
 - 无需设置 `texture`，引擎自动取 `prefix0.png` 作为初始贴图
 
 ### 4.4.2 RippleAnim（涟漪动画）
