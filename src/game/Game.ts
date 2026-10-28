@@ -138,13 +138,13 @@ export class Game {
 
     const layer: LayerInstance = { cfg, target, parent, anims: cfg.anims ?? [] }
     for (const feature of FEATURES) feature.build?.(layer)
-    parent.addChild(target)
+    parent.addChild(layer.target) // 特性可能已替换 target（如 rect），以 layer 为准
     this.layers.push(layer)
 
     // 容器节点递归构建子元素
     if (cfg.children) {
       for (const child of cfg.children) {
-        this.buildLayer(child, target as Container)
+        this.buildLayer(child, layer.target as Container)
       }
     }
     return layer
