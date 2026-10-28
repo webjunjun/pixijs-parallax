@@ -27,9 +27,15 @@ export interface MaskConfig {
   range?: [number, number] // 矩形模式：展开区间
   width?: number // 矩形模式：完全展开时的宽度（设计稿像素）
   height?: number // 矩形模式：高度，默认取 DESIGN_HEIGHT
-  circle?: { cx: number; cy: number; radius: number } // 圆形模式：圆心 + 半径
+  circle?: { radius?: number; color?: number; alpha?: number } // 圆形模式：半径/颜色/透明度
   from?: number // 圆形模式：初始 scale（默认 0）
   steps?: MaskStep[] // 圆形模式：多段缩放轨道
+  maskContainer?: { // 独立遮罩容器模式（参考 part3MaskCont）
+    x: number // 容器初始位置（相对 parent/content）
+    y: number
+    pivot?: [number, number] // 容器 pivot（控制缩放中心）
+    anims: AnimKey[] // 容器自身的滚动驱动动画（scale/position 等）
+  }
 }
 
 /** 纯色矩形（无需贴图，用 Graphics 绘制，如场景白/黑底幕） */
@@ -37,6 +43,14 @@ export interface RectConfig {
   width: number
   height: number
   color: number
+  alpha?: number // 透明度，默认 1.0
+}
+
+/** 纯色圆形（用 Graphics 绘制，如遮罩） */
+export interface CircleConfig {
+  radius: number
+  color: number
+  alpha?: number // 透明度，默认 1.0
 }
 
 /** 一个元素 = 贴图 + 初始位置 + 若干条动画
@@ -54,7 +68,9 @@ export interface ElementConfig {
   anims?: AnimKey[] // 滚动驱动的区间动画
   loop?: LoopAnim // 时间驱动的循环动画（如手势提示）
   mask?: MaskConfig // 滚动驱动的展开遮罩
+  maskRef?: string // 引用其他层的 Graphics 作为遮罩（如 'maskCont.mask'）
   rect?: RectConfig // 纯色矩形（本节点变 Graphics）
+  circle?: CircleConfig // 纯色圆形（本节点变 Graphics）
   children?: ElementConfig[] // 子元素，存在时本节点为 Container
 }
 

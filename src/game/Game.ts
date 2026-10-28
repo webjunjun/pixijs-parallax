@@ -152,10 +152,19 @@ export class Game {
 
   /** 组装所有 PARTS 到 content 容器 */
   private buildContent(): void {
+    const layerMap = new Map<string, LayerInstance>()
     for (const part of PARTS) {
       for (const cfg of part.layers) {
-        this.buildLayer(cfg, this.content)
+        const layer = this.buildLayer(cfg, this.content)
+        layerMap.set(cfg.name, layer)
       }
+    }
+    // 处理 maskRef：引用其他层的 Graphics 作为遮罩
+    for (const layer of this.layers) {
+      const ref = layer.cfg.maskRef
+      if (!ref) continue
+      const refLayer = this.layers.find((l) => l.cfg.name === ref)
+      if (refLayer) layer.target.mask = refLayer.target
     }
     this.app.stage.addChild(this.content)
   }

@@ -12,6 +12,8 @@ export interface LayerInstance {
   animTracks?: Map<AnimKey['prop'], AnimKey[]> // anim 特性：按 prop 分组的关键帧轨道
   loopTime?: number    // loop 特性：已用时间（秒）
   maskShape?: Graphics // mask 特性：遮罩图形
+  maskContainer?: Container // mask 特性：独立遮罩容器（maskContainer 模式）
+  maskContainerTracks?: Map<AnimKey['prop'], AnimKey[]> // mask 容器动画轨道
 }
 
 /** 特性接口：每个特性负责自己的「创建」和「每帧更新」 */
@@ -40,9 +42,22 @@ const rectFeature: Feature = {
     const rect = layer.cfg.rect
     if (!rect) return
     const g = new Graphics()
-    g.rect(0, 0, rect.width, rect.height).fill(rect.color)
+    // 注意：必须用对象形式传 fill，0x000000 是 falsy，位置参数 fill(color, alpha) 会被 pixi 跳过而用默认白色
+    g.rect(0, 0, rect.width, rect.height).fill({ color: rect.color, alpha: rect.alpha ?? 1.0 })
     g.position.set(layer.cfg.x, layer.cfg.y)
     if (layer.cfg.scale) g.scale.set(layer.cfg.scale[0], layer.cfg.scale[1])
+    layer.target = g
+  },
+}
+
+/** 纯色圆形：把 target 替换成 Graphics */
+const circleFeature: Feature = {
+  build(layer) {
+    const c = layer.cfg.circle
+    if (!c) return
+    const g = new Graphics()
+    g.circle(0, 0, c.radius).fill({ color: c.color, alpha: c.alpha ?? 1.0 })
+    g.position.set(layer.cfg.x, layer.cfg.y)
     layer.target = g
   },
 }
@@ -73,7 +88,8 @@ const loopFeature: Feature = {
   },
 }
 
-/** 滚动驱动的遮罩：矩形 scale.x 展开，或圆形按 steps 多段缩放 */
+/** 滚动驱动的遮罩：矩形 scale.x 展开，或圆形按 steps 多段缩放
+ *  支持 maskContainer 模式：遮罩放在独立容器中，容器有自己的 anims 驱动缩放/位移 */
 const maskFeature: Feature = {
   build(layer) {
     const { cfg, target, parent } = layer
@@ -81,8 +97,7 @@ const maskFeature: Feature = {
     if (!m) return
     const mask = new Graphics()
     if (m.circle) {
-      mask.circle(0, 0, m.circle.radius).fill({ color: 0xffffff })
-      mask.position.set(m.circle.cx, m.circle.cy) // 圆心对齐世界坐标
+      mask.circle(0, 0, m.circle.radius ?? 0).fill({ color: m.circle.color ?? 0xffffff, alpha: m.circle.alpha ?? 1.0 })
       const s = m.from ?? 0
       mask.scale.set(s, s)
     } else {
@@ -92,16 +107,54 @@ const maskFeature: Feature = {
       mask.position.set(cfg.x, 0) // 遮罩起点对齐 target 的 x
       mask.scale.x = 0
     }
-    target.mask = mask
-    parent.addChild(mask) // 遮罩必须加入舞台才生效
-    layer.maskShape = mask
+    if (m.maskContainer) {
+      // 独立容器模式：mask 是 maskContainer 的子元素，容器加入 parent
+      const mc = m.maskContainer
+      const container = new Container()
+      container.position.set(mc.x, mc.y)
+      if (mc.pivot) container.pivot.set(mc.pivot[0], mc.pivot[1])
+      container.addChild(mask)
+      parent.addChild(container)
+      target.mask = mask // 遮罩作用到 target 上
+      layer.maskShape = mask
+      layer.maskContainer = container
+      // 容器的 anims 用 animFeature 同样的轨道逻辑驱动
+      const tracks = new Map<AnimKey['prop'], AnimKey[]>()
+      for (const anim of mc.anims) {
+        const list = tracks.get(anim.prop)
+        if (list) list.push(anim)
+        else tracks.set(anim.prop, [anim])
+      }
+      for (const list of tracks.values()) list.sort((a, b) => a.range[0] - b.range[0])
+      layer.maskContainerTracks = tracks
+    } else {
+      // 简单模式：mask 直接加入 parent
+      target.mask = mask
+      parent.addChild(mask)
+      layer.maskShape = mask
+    }
   },
   update(layer, scrollPro) {
-    const { maskShape, cfg } = layer
+    const { maskShape, maskContainer, maskContainerTracks, cfg } = layer
     const m = cfg.mask
     if (!maskShape || !m) return
-    if (m.circle) {
-      // 多段缩放轨道：每段起点自动接上一段终点，区间外钉住
+    if (m.maskContainer) {
+      // 独立容器模式：驱动容器的 anims
+      if (maskContainerTracks && maskContainer) {
+        for (const [prop, list] of maskContainerTracks) {
+          let val = list[0].from
+          for (const anim of list) {
+            if (scrollPro >= anim.range[0] && scrollPro <= anim.range[1]) {
+              val = scrollNumClamped(anim.range[0], anim.range[1], scrollPro, anim.from, anim.to)
+              break
+            }
+            if (scrollPro > anim.range[1]) val = anim.to
+          }
+          applyProp(maskContainer, prop, val)
+        }
+      }
+    } else if (m.circle) {
+      // 简单圆形模式：steps 缩放
       let s = m.from ?? 0
       for (const st of m.steps ?? []) {
         if (scrollPro <= st.range[0]) break
@@ -147,4 +200,4 @@ const animFeature: Feature = {
 }
 
 /** 已注册的特性，按 build 顺序执行（rect 换 target 最先，anim 最后） */
-export const FEATURES: Feature[] = [rectFeature, anchorFeature, loopFeature, maskFeature, animFeature]
+export const FEATURES: Feature[] = [rectFeature, circleFeature, anchorFeature, loopFeature, maskFeature, animFeature]
