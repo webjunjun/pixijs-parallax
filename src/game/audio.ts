@@ -5,11 +5,11 @@ const AUDIO_ROOT = '/assets/audio'
 interface SoundInstance {
   cfg: SoundConfig
   audio: HTMLAudioElement | null // 懒创建：首次进入 trigger 区间才 new Audio
-  flag: boolean // 同参考稿 pixi-sound 的 flag：进入区间播放后置 false，离开区间重置回 true
+  flag: boolean // 同 pixi-sound 的 flag：进入区间播放后置 false，离开区间重置回 true
 }
 
 /** 滚动区间驱动的声音管理器（Pixi v8 无内置 sound，用 HTMLAudioElement 实现）
- *  语义对照 linshi.js 声音段：trigger 区间播一次、fadeIn/fadeOut 线性音量、
+ *  语义对照 SoundConfig：trigger 区间播一次、fadeIn/fadeOut 线性音量、
  *  区间外暂停、musicOn 关闭时暂停一切 */
 export class SoundManager {
   musicOn = true
@@ -24,7 +24,7 @@ export class SoundManager {
     window.addEventListener('pointerdown', () => this.resumeBgm())
   }
 
-  /** .music 开关：对照参考稿 musicPlay/musicPause */
+  // music 开关
   toggle(): boolean {
     this.musicOn = !this.musicOn
     if (this.musicOn) this.resumeBgm()
@@ -51,7 +51,7 @@ export class SoundManager {
       if (!audio) continue
       const playing = !audio.paused
 
-      // 音量渐显/渐隐（仅播放中调整，同参考稿 isPlaying 判断）
+      // 音量渐显/渐隐（仅播放中调整）
       if (playing && scrollPro > fadeIn[0] && scrollPro < fadeIn[1]) {
         audio.volume = (scrollPro - fadeIn[0]) / (fadeIn[1] - fadeIn[0])
       }
@@ -70,7 +70,9 @@ export class SoundManager {
     this.bgm
       .play()
       .then(() => { this.bgmStarted = true })
-      .catch(() => { /* 素材缺失或被政策拦截，保持 bgmStarted=false 等待下次手势 */ })
+      .catch(() => {
+        // 素材缺失或被政策拦截，保持 bgmStarted=false 等待下次手势
+      })
   }
 
   private play(inst: SoundInstance): void {
@@ -82,6 +84,8 @@ export class SoundManager {
     }
     inst.audio.volume = 1
     inst.flag = false
-    inst.audio.play().catch(() => { /* 素材缺失时静默跳过 */ })
+    inst.audio.play().catch(() => {
+      // 素材缺失时静默跳过
+    })
   }
 }

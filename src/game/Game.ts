@@ -39,9 +39,9 @@ export class Game {
   private readonly scroll: ScrollController
   private readonly container: HTMLElement
   private readonly onProgress?: (pct: number) => void
-  /** 滚动区间声音 + BGM 开关（main.ts 的 .music 按钮调用 toggle） */
+  // 音效管理器
   readonly sound = new SoundManager()
-  /** 设计稿 → canvas 像素的缩放比，所有内部坐标统一用设计稿坐标系 */
+  // 设计稿 → canvas 像素的缩放比，所有内部坐标统一用设计稿坐标系
   private scaleX = 1
   private scaleY = 1
 
@@ -78,10 +78,10 @@ export class Game {
       })
   }
 
-  /** 横竖屏适配：CSS rotate(90°) + canvas resize 宽高对调
-   *  content 容器按设计稿比例缩放，内部坐标统一用设计稿坐标系，
-   *  屏幕中心点恒为 (DESIGN_WIDTH/2, DESIGN_HEIGHT/2)
-   */
+  // 资源图都是做的横屏，需要适配竖屏
+  // 因此 CSS rotate(90°) + canvas resize 宽高对调
+  // 屏幕中心点恒为 (DESIGN_WIDTH/2, DESIGN_HEIGHT/2)
+  // content 容器按设计稿比例缩放，内部坐标统一用设计稿坐标系
   private resize(): void {
     const ww = window.innerWidth
     const wh = window.innerHeight
@@ -110,7 +110,7 @@ export class Game {
     this.content.scale.set(this.scaleX, this.scaleY)
   }
 
-  /** 递归收集所有层级中的 texture 路径 */
+  // 递归收集所有层级中的 texture 路径
   private collectTextures(configs: ElementConfig[]): string[] {
     const urls: string[] = []
     const walk = (list: ElementConfig[]) => {
@@ -128,7 +128,7 @@ export class Game {
     return urls
   }
 
-  /** 预加载所有素材，用 Assets 内置 onProgress 回调百分比 0~100 */
+  // 预加载所有素材，用 Assets 内置 onProgress 回调百分比 0~100
   private async preloadImages(): Promise<void> {
     const urls = this.collectTextures(PARTS.flatMap((p) => p.layers))
     await Assets.load<Record<string, Texture>>(urls, (progress) => {

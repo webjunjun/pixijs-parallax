@@ -1,11 +1,11 @@
-/** 一个滚动区间驱动的声音（语义完全对照 linshi.js 声音段 L4905-5977）
+/** 一个滚动区间驱动的声音
  *  - trigger：进入区间时播放一次（离开区间后重置 flag，回翻再进区间可重播）
  *  - fadeIn：区间内音量 0→1 线性渐显；区间之前强制暂停
  *  - fadeOut：区间内音量 1→0 线性渐隐；区间之后强制暂停（缺省则让声音自然播完）
- *  - loop：循环播放（对应参考稿 sound.loop = true）
+ *  - loop：循环播放
  */
 export interface SoundConfig {
-  name: string // 参考稿资源名（调试用）
+  name: string // 资源名（调试用）
   file: string // audio/ 下的文件名
   trigger: [number, number]
   fadeIn: [number, number]
