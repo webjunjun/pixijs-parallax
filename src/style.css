@@ -86,7 +86,6 @@ canvas {
 .loading-ring {
   width: 100px;
   height: 100px;
-  background: url('/assets/tonghua/loading/loading.png');
   background-size: cover;
 }
 
@@ -100,7 +99,6 @@ canvas {
 .loading-hand {
   width: 100px;
   height: 100px;
-  background: url('/assets/tonghua/loading/loading-hand.png');
   background-size: cover;
   transform: translateY(-100px);
   animation: loadingHand 2s linear infinite;

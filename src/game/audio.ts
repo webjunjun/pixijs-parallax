@@ -1,6 +1,6 @@
 import { SOUNDS, type SoundConfig } from '../utils/sounds'
 
-const AUDIO_ROOT = '/assets/audio'
+const AUDIO_ROOT = './assets/audio'
 
 interface SoundInstance {
   cfg: SoundConfig

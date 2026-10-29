@@ -2,9 +2,14 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>PixiJS Parallax Demo</title>
+    <style>
+      /* loading 图用相对页面根路径；构建后 style.css 在子目录里，url 会指错 */
+      .loading-ring { background: url('./assets/tonghua/loading/loading.png'); }
+      .loading-hand { background: url('./assets/tonghua/loading/loading-hand.png'); }
+    </style>
   </head>
   <body>
     <!-- css加载loading动画 -->
