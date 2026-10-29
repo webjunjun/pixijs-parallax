@@ -38,6 +38,36 @@ canvas {
   display: block;
 }
 
+/* 桌面端手机壳：黑边 + 圆角 + 刘海，屏幕镂空区域正好放 canvas */
+#app.desktop {
+  padding: 16px;
+  border-radius: 46px;
+  background: linear-gradient(145deg, #3a3a3e, #0b0b0c);
+  box-shadow:
+    0 0 0 2px #4a4a4e,
+    0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+#app.desktop canvas {
+  border-radius: 30px;
+}
+
+/* 刘海：横屏时真机刘海转到侧边，贴在左边框、竖着挂进屏幕
+   比例参照 iPhone 横放：长约屏幕高 36%，伸入屏幕约 3% */
+#app.desktop::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3.2%;
+  height: 36%;
+  background: #000;
+  border-radius: 0 18px 18px 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 #loading {
   position: fixed;
   left: 50%;

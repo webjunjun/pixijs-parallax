@@ -4,6 +4,14 @@ import type { ElementConfig } from '../utils/type'
 import { FEATURES, type LayerInstance } from './features'
 import { SoundManager } from './audio'
 
+// 桌面端手机壳：两侧黑边宽度、手机壳与窗口的最小间距（CSS 像素）
+const PHONE_BEZEL = 16
+const PHONE_MARGIN = 90
+// 真机横放屏幕宽高比（19.5:9，iPhone 15 Pro 约 2.17:1）
+const PHONE_RATIO = 19.5 / 9
+// 手机壳屏幕高度 ≈ 窗口高度的比例，桌面展示区不铺满窗口
+const PHONE_SIZE_RATIO = 0.5
+
 /** 简单滚动控制器：手指 → scrollY 纯累加，无惯性无弹性 */
 export class ScrollController {
   scrollY = 0
@@ -44,12 +52,16 @@ export class Game {
   // 设计稿 → canvas 像素的缩放比，所有内部坐标统一用设计稿坐标系
   private scaleX = 1
   private scaleY = 1
+  // 桌面端（有鼠标、无触摸）：限定手机壳区域 + 鼠标拖拽，移动端逻辑不变
+  private readonly isDesktop: boolean
 
   constructor(container: HTMLElement, onProgress?: (pct: number) => void) {
     this.app = new Application()
     this.scroll = new ScrollController(TOTAL_SCROLL)
     this.container = container
     this.onProgress = onProgress
+    this.isDesktop =
+      !('ontouchstart' in window) && window.matchMedia('(pointer: fine)').matches
 
     this.app
       .init({
@@ -85,6 +97,30 @@ export class Game {
   private resize(): void {
     const ww = window.innerWidth
     const wh = window.innerHeight
+
+    // 桌面：屏幕开孔按真机比例 19.5:9，高度 ≈ 窗口 60%，居中不旋转
+    if (this.isDesktop) {
+      const maxW = ww - PHONE_MARGIN * 2
+      const maxH = wh - PHONE_MARGIN * 2
+      let sh = Math.min(maxH, wh * PHONE_SIZE_RATIO)
+      let sw = sh * PHONE_RATIO
+      if (sw > maxW) {
+        sw = maxW
+        sh = sw / PHONE_RATIO
+      }
+      this.container.classList.add('desktop')
+      this.container.style.cssText = `
+        position: fixed; left: 50%; top: 50%;
+        width: ${sw + PHONE_BEZEL * 2}px; height: ${sh + PHONE_BEZEL * 2}px;
+        transform: translate(-50%, -50%);
+      `
+      this.app.renderer.resize(sw, sh)
+      this.scaleX = sw / DESIGN_WIDTH
+      this.scaleY = sh / DESIGN_HEIGHT
+      this.content.scale.set(this.scaleX, this.scaleY)
+      return
+    }
+
     const isLandscape = ww >= wh
 
     if (isLandscape) {
@@ -186,6 +222,29 @@ export class Game {
    */
   private bindTouch(): void {
     const canvas = this.app.canvas as HTMLCanvasElement
+
+    // 桌面：鼠标按住拖拽（无旋转，取 clientX），move/up 绑 window 防止拖出画布丢事件
+    if (this.isDesktop) {
+      canvas.style.cursor = 'grab'
+      canvas.addEventListener('mousedown', (e) => {
+        e.preventDefault()
+        canvas.style.cursor = 'grabbing'
+        this.scroll.onTouchStart(e.clientX / this.scaleX)
+      })
+      window.addEventListener('mousemove', (e) => {
+        this.scroll.onTouchMove(e.clientX / this.scaleX)
+      })
+      window.addEventListener('mouseup', () => {
+        canvas.style.cursor = 'grab'
+        this.scroll.onTouchEnd()
+      })
+      window.addEventListener('blur', () => {
+        canvas.style.cursor = 'grab'
+        this.scroll.onTouchEnd()
+      })
+      return
+    }
+
     const getAxis = (t: Touch): number => {
       const isLandscape = window.innerWidth >= window.innerHeight
       return (isLandscape ? t.clientX : t.clientY) / this.scaleX
